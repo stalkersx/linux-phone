@@ -1,0 +1,108 @@
+#!/bin/bash
+
+# check packages
+path_bin="/usr/bin"
+path_bineries=("vncserver" "vncviewer" "adb")
+service_enable=("dbus" "networking")
+
+# variabel
+for pkg in ${path_bineries[@]};do
+	if [ ! -f "$path_bin/$pkg" ];then
+		echo "[-] bineries <[$pkg]> not found"
+	fi
+done
+
+# get display
+if [[ $2 -eq 1 ]];then
+	display=1
+elif [[ $2 -eq 2 ]];then
+	display=2
+else
+	display=3
+fi
+
+# message
+meslog(){
+	echo "$1"
+}
+
+# add function shell
+configure_shell_start(){
+	# create local exec
+	if [ -d $HOME/.local/bin ] && [[ "$(whoami)" != "root" ]];then
+		export PATH="=$PATH:$HOME/.local/bin"
+	fi
+
+	# connect adb
+	adb connect localhost:5554
+
+	# import sound of termux
+	#export PULSE_SERVER=127.0.0.1 && pulseaudio --start --disable-shm=1 --exit-idle-time=-1
+}
+
+# stop configure shell
+configure_shell_stop(){
+	# disconnect adb
+	adb disconnect
+
+	# remove var server pulseaudio
+	export -n PULSE_SERVER
+}
+
+# check root
+check_root(){
+	if [[ $(whoami) != "root" ]];then
+		echo "[-] service need permission root"; exit
+	fi
+}
+
+# start kali vnc
+if [[ $1 == "startvnc" ]];then
+	if [ -f "/tmp/.X$display-lock" ];then
+		meslog "[+] Server already started!"
+	else
+		configure_shell_start
+		if [[ $2 -eq 2 ]];then
+			vncserver :$display -localhost no
+			printf "[+] IP : "
+			ifconfig wlan0 | grep inet | awk '{print $2}' | head -n 1
+		else
+			vncserver :$display -localhost yes
+		fi
+		meslog "[+] Server start!"
+	fi
+	# import sound from apk server
+	Audiofix start
+
+# stop kali vnc
+elif [[ $1 == "stopvnc" ]];then
+	configure_shell_stop
+	for r in {1..4};do
+		if [[ $r -eq $display ]];then
+			vncserver -kill ":$r" && meslog "[-] Server Stop!"
+			if [ -f /tmp/.X${r}-lock ];then
+				rm /tmp/.X${r}-lock
+			fi
+			if [ -f /tmp/.X11-unix/X$r ];then
+				rm /tmp/.X11-unix/X$r
+			fi
+			exit
+		fi
+	done
+	meslog "[-] Server already stop!"
+
+elif [[ $1 == "startservice" ]] && [ -z "$2" ];then
+	check_root
+	for s in ${service_enable[@]};do
+		service $s start && meslog "[+] Start Service $s"
+	done
+elif [[ $1 == "stopservice" ]] && [ -z "$2" ];then
+	check_root
+	for t in ${service_enable[@]};do
+		service $t stop && meslog "[+] Stop Service $t"
+	done
+else
+	meslog "usage : kalivnc [startvnc | stopvnc | startservice | stopservice]"
+fi
+
+#by : @Stalkersx

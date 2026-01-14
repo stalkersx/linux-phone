@@ -1,0 +1,91 @@
+#!/bin/sh
+
+# variabel
+appaudio=com.Nethunter.Audio.Player
+appvncviewer=com.gaurav.avnc
+
+# time
+if [ -f $(which date) ];then date; fi
+
+# path
+chroot_fs="/data/local/nhsystem/kalifs"
+chroot_sc="/data/local/nhsystem/scripts"
+
+# check root
+if [[ $(whoami) != "root" ]];then
+	echo "! need root access ..." && exit
+fi
+
+# adb connection with tcp port
+if [ -z "$(getprop | grep service.adb.tcp.port)" ];then
+	echo "[+] setting adb tcp 5554 ...."
+	# running via tcp port localhost
+	setprop service.adb.tcp.port 5554
+	stop adbd
+fi
+
+# adb enable usb debugging localhost
+if [[ $(settings get global adb_enabled) -eq 0 ]];then
+	echo "[+] enable usb debugging localhost..."
+	settings put global adb_enabled 1
+fi
+
+# adb enable usb debugging wifi
+#if [[ $(settings get global adb_wifi_enabled) -eq 0 ]];then
+#	echo "[+] enable usb debugging wifi...."
+#	settings put global adb_wifi_enabled 1
+#fi
+
+# enable opsi development settings android
+#if [[ $(settings get global development_settings_enabled) -eq 0 ]];then
+#	echo "[+] enable development settings..."
+#	settings put global development_settings_enabled 1
+#fi
+
+# check adb is running
+if [[ $(getprop init.svc.adbd) != "running" ]];then
+	start adbd
+fi
+
+# check user
+for usr in $(ls "$chroot_fs/home");do
+	if [[ $1 == $usr ]];then
+		c_user=$usr
+	fi
+done
+
+startapps(){
+	# open app Nethunter Audio
+	if [ "$(pm list packages $appaudio)" ];then
+        	am start-activity -n $appaudio/com.kaytat.Nethunteraudioplayer.MainActivity
+	else
+		echo "[-] apps for audio not found"
+	fi
+
+	# open app Vncviewer
+	#if [ "$(pm list packages $appvncviewer)" ];then
+        #	am start-activity -n $appvncviewer/com.gaurav.avnc.ui.home.HomeActivity
+	#else
+	#	echo "[-] apps for vnc not found"
+	#fi
+}
+
+# login nethunter
+if [ -z "$1" ];then
+	echo "usage : loginshell [user] [startvnc|wifivnc|stopvnc]"
+else
+	# login shell user
+	if [[ $1 == "root" ]] && [ -z "$2" ];then
+        	$chroot_sc/bootkali_login
+	elif [[ $1 == "$c_user" ]] && [ -z "$2" ];then
+		$chroot_sc/bootkali_login $1
+	elif [[ $1 == "$c_user" ]] && [[ $2 == "startvnc" ]] && [ -z "$3" ];then
+		$chroot_sc/bootkali_login $1 $2 1 && startapps
+	elif [[ $1 == "$c_user" ]] && [[ $2 == "stopvnc" ]] && [ -z "$3" ];then
+		$chroot_sc/bootkali_login $1 $2 1
+	elif [[ $1 == "$c_user" ]] && [[ $2 == "wifivnc" ]] && [ -z "$3" ];then
+		$chroot_sc/bootkali_login $1 "startvnc" 2
+	else
+		echo "! unknown $1 $2"
+	fi
+fi

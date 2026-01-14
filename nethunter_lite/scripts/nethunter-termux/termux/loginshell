@@ -1,0 +1,134 @@
+#!/bin/bash
+
+# time
+if [ -f $(which date) ];then date; fi
+
+# path
+chroot_fs="/data/local/nhsystem/kali-arm64"
+chroot_sc="/data/local/nhsystem/scripts_nethunter"
+
+# configure remote
+remote_on(){
+	# mount home termux
+	if ! [ -d "$1/media/termux" ];then
+		sudo mkdir "$1/media/termux"
+		echo "[+] add directory /media/termux"
+	else
+		if [ -z "$(sudo ls $1/media/termux)" ];then
+			sudo mount -o bind,rw $HOME "$1/media/termux"
+			sudo chown -R :1000 $1/media/termux
+			sudo chmod -R g+rwx $1/media/termux
+			echo "[+] mount home termux"
+		fi
+	fi
+
+	# remote termux
+	if [ -z "$(pidof sshd)" ];then
+		echo "[+] start remote termux ...."
+		sshd
+	fi
+
+	# import sound to server
+	if [ -z "$(pidof pulseaudio)" ];then
+		echo "[+] start import sound ...."
+		pulseaudio --start --load="module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1" --exit-idle-time=-1
+	fi
+
+	# start adb server deamon
+	if [[ "$(getprop | grep adbd | grep -o 'stopped')" == "stopped" ]];then
+		echo "[+] start remote terminal android ...."
+		sudo start adbd
+	fi
+}
+
+# configure off remote
+remote_off(){
+	# umount termux home
+	if [ "$(sudo ls $1/media/termux)" ];then
+		sudo chown -R :$(whoami) $1/media/termux
+		sudo umount $1/media/termux
+		echo "[+] umount home termux"
+	fi
+
+	# remote termux
+	if [ "$(pidof sshd)" ];then
+		echo "[+] stop remote termux ...."
+		kill -SIGKILL $(pidof sshd)
+	fi
+
+	# kill sound of server
+	if [ "$(pidof pulseaudio)" ];then
+		echo "[+] stop import sound ..."
+		kill -SIGKILL $(pidof pulseaudio)
+	fi
+
+	# stop adb server deamon
+	if [[ "$(getprop | grep adbd | grep -o 'running')" == "running" ]];then
+		echo "[+] stop remote terminal android ...."
+		sudo stop adbd
+	fi
+}
+
+# check ram swap
+#zram1=$(sudo swapon | grep memory.swap)
+#if [ -z "$zram1" ];then
+#	echo "[+] setting swap ...."
+#	sudo swapon /data/memory.swap
+#fi
+
+#swapins=$(sudo cat /proc/sys/vm/swappiness)
+#if [[ $swapins -ne 200 ]];then
+#  sudo sysctl -w vm.swappiness=200
+#fi
+
+# adb connection with tcp port
+if [ -z "$(sudo getprop | grep service.adb.tcp.port)" ];then
+	echo "[+] setting adb tcp 5554 ...."
+	# running via tcp port localhost
+	sudo setprop service.adb.tcp.port 5554
+fi
+
+# adb enable usb debugging localhost
+if [[ $(sudo settings get global adb_enabled) -eq 0 ]];then
+	echo "[+] enable usb debugging localhost..."
+	sudo settings put global adb_enabled 1
+fi
+
+# adb enable usb debugging wifi
+#if [[ $(sudo settings get global adb_wifi_enabled) -eq 0 ]];then
+#	echo "[] enable usb debugging wifi...."
+#	sudo settings put global adb_wifi_enabled 1
+#fi
+
+# enable development settings android
+#if [[ $(sudo settings get global development_settings_enabled) -eq 0 ]];then
+#	echo "[+] enable development settings..."
+#	sudo settings put global development_settings_enabled 1
+#fi
+
+# check user
+for usr in $(ls "$chroot_fs/home");do
+	if [[ $1 == $usr ]];then
+		c_user=$usr
+	fi
+done
+
+# login nethunter
+if [ -z "$1" ];then
+	echo "usage : loginshell [user] [startvnc|wifivnc|stopvnc]"
+else
+	# login shell user
+	if [[ $1 == "root" ]] && [ -z "$2" ];then
+        	sudo "$chroot_sc/bootkali_login"
+	elif [[ $1 == "$c_user" ]] && [ -z "$2" ];then
+		sudo "$chroot_sc/bootkali_login" $1
+	elif [[ $1 == "$c_user" ]] && [[ $2 == "startvnc" ]] && [ -z "$3" ];then remote_on $chroot_fs $1
+		sudo "$chroot_sc/bootkali_login" $1 $2 1
+	elif [[ $1 == "$c_user" ]] && [[ $2 == "stopvnc" ]] && [ -z "$3" ];then remote_off $chroot_fs
+		sudo "$chroot_sc/bootkali_login" $1 $2
+	elif [[ $1 == "$c_user" ]] && [[ $2 == "wifivnc" ]] && [ -z "$3" ];then remote_on
+		sudo "$chroot_sc/bootkali_login" $1 "startvnc" 2
+	else
+		echo "! unknown $1 $2"
+	fi
+fi

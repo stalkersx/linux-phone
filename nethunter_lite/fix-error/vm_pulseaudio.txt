@@ -1,0 +1,9 @@
+########## COMMAND ON TERMUX ###########
+- $ apt install pulseaudio -y
+- $ pulseaudio --start --load="module-native-protocol-tcp auth-ip-acl=127.0.0.1 auth-anonymous=1"
+--exit-idle-time=-1
+- $ proot-distro login ubuntu --login user
+
+######## COMMAND ON LINUX ###########
+- $ export PULSE_SERVER=127.0.0.1 && pulseaudio --start --disable-shm=1 --exit-idle-time=-1
+- $ vncserver :1

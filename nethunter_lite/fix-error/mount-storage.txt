@@ -1,0 +1,11 @@
+# terminal termux
+####### MOUNT SDCARD #######
+- # mkdir /path/chroot_system/media/sdcard
+- # mount -o bind /sdcard /path/chroot_system/media/sdcard
+
+####### MOUNT HOME TERMUX ######
+- # mkdir /path/chroot_fs/media/termux
+- # mount -o bind $PREFIX/../home /path/chroot_fs/media/termux
+- # ls -l /path/chroot_fs/media
+- # chown [user_ori]:[user_linux] /path/chroot_fs/media/termux
+- # chmod g+rwx /path/chroot_fs/media/termux

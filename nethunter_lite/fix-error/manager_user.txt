@@ -1,0 +1,8 @@
+# terminal nethunter
+######## BUAT USER #############
+- # useradd -m -s /bin/bash [nama_user]
+- # usermod -a -G sudo [nama_user]
+
+######### HAPUS USER ############
+- # killall -u [nama_user]
+- # userdel -r [nama_user]

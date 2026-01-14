@@ -1,0 +1,13 @@
+#!/bin/bash
+
+if [[ "$(whoami)" == "root" ]];then
+  if [[ $1 == "start" ]];then
+    /home/cybersx/.local/bin/kalivnc startservice
+  elif [[ $1 == "stop" ]] && [ -z "$2" ];then
+    /home/cybersx/.local/bin/kalivnc stopservice
+  else
+    echo "usage : confservice [start|stop]"
+  fi
+else
+  echo "! get root access"
+fi
